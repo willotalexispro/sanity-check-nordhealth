@@ -198,7 +198,7 @@ jobs:
             node pipeline/generate.js \
               --current  "$OVERVIEW" \
               --previous "results/$PREV_DATE/crawl_overview.csv" \
-              --config   pipeline/configs/spilou.json \
+              --config   pipeline/configs/nordhealth.json \
               --output   "$PPTX_OUT"
           else
             echo "Génération baseline (sans comparaison W-o-W)"
@@ -231,7 +231,7 @@ jobs:
           with open(pptx_path, 'rb') as f:
               content = base64.b64encode(f.read()).decode()
           payload = json.dumps({
-              'filename': f'Crawl Overview Spilou - {crawl_date}.pptx',
+              'filename': f'Crawl Overview NordHealth - {crawl_date}.pptx',
               'content':  content,
           }).encode()
           req = urllib.request.Request(
