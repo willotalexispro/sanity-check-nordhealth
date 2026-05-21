@@ -1,0 +1,964 @@
+<!DOCTYPE html>
+<html lang="fr">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>SEO Dashboard</title>
+  <link rel="stylesheet" href="theme.css">
+  <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.5.1/css/all.min.css">
+  <script src="https://cdn.jsdelivr.net/npm/chart.js@4.4.0/dist/chart.umd.min.js"></script>
+  <style>
+    *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
+    body { font-family: var(--font-family); font-size: var(--font-size-base); background: var(--color-bg); color: var(--color-primary); display: flex; flex-direction: column; height: 100vh; overflow: hidden; }
+
+    /* ── Header ── */
+    header { background: var(--header-bg); color: var(--header-text); padding: 0 28px; display: flex; align-items: center; justify-content: space-between; height: 52px; flex-shrink: 0; }
+    header h1 { font-size: .95rem; font-weight: 600; }
+    .last-crawl { font-size: .78rem; opacity: .5; }
+
+    /* ── Layout ── */
+    .layout { display: flex; flex: 1; min-height: 0; }
+
+    /* ── Sidebar ── */
+    .sidebar { width: 200px; flex-shrink: 0; background: var(--color-card); border-right: 1px solid var(--color-border); display: flex; flex-direction: column; overflow-y: auto; }
+    .sidebar-nav { padding: 16px 0; flex: 1; }
+    .nav-section { font-size: .68rem; text-transform: uppercase; letter-spacing: .6px; color: var(--color-neutral); padding: 12px 18px 6px; font-weight: 600; }
+    .nav-btn {
+      display: flex; align-items: center; gap: 10px;
+      width: 100%; padding: 9px 18px;
+      border: none; background: none;
+      font-family: var(--font-family); font-size: .83rem;
+      color: var(--color-primary); opacity: .65;
+      cursor: pointer; text-align: left;
+      border-left: 3px solid transparent;
+      transition: all .15s;
+    }
+    .nav-btn:hover { opacity: 1; background: var(--color-bg); }
+    .nav-btn.active { opacity: 1; border-left-color: var(--tab-active-bg); color: var(--tab-active-bg); font-weight: 600; background: var(--color-bg); }
+    .nav-icon { font-size: .85rem; width: 18px; text-align: center; flex-shrink: 0; }
+
+    /* ── Main content ── */
+    .main { flex: 1; overflow-y: auto; min-height: 0; }
+    .tab-panel { display: none; }
+    .tab-panel.active { display: block; }
+    .container { max-width: 1080px; margin: 0 auto; padding: 24px 28px; }
+
+    /* ── Cards ── */
+    .cards { display: grid; grid-template-columns: repeat(auto-fit, minmax(160px, 1fr)); gap: 12px; margin-bottom: 24px; }
+    .card { background: var(--color-card); border-radius: 8px; padding: 16px 18px; box-shadow: 0 1px 3px rgba(0,0,0,.06); border-top: 3px solid transparent; }
+    .card.blue   { border-top-color: var(--color-accent); }
+    .card.green  { border-top-color: var(--color-success); }
+    .card.orange { border-top-color: var(--color-warning); }
+    .card.red    { border-top-color: var(--color-danger); }
+    .card .label { font-size: .7rem; text-transform: uppercase; letter-spacing: .5px; color: var(--color-neutral); margin-bottom: 7px; }
+    .card .value { font-size: 1.8rem; font-weight: 700; line-height: 1; }
+    .card .comparison { display: flex; align-items: center; gap: 5px; margin-top: 7px; font-size: .75rem; }
+    .prev { color: var(--color-neutral); }
+    .delta-good { color: var(--color-success); font-weight: 600; }
+    .delta-bad  { color: var(--color-danger);  font-weight: 600; }
+    .delta-zero { color: var(--color-neutral); }
+
+    /* ── Charts ── */
+    .charts { display: grid; grid-template-columns: repeat(auto-fit, minmax(460px, 1fr)); gap: 16px; margin-bottom: 24px; }
+    .chart-box { background: var(--color-card); border-radius: 8px; padding: 18px 20px; box-shadow: 0 1px 3px rgba(0,0,0,.06); }
+    .chart-box.full { grid-column: 1 / -1; }
+    .chart-box h2 { font-size: .75rem; font-weight: 600; text-transform: uppercase; letter-spacing: .5px; color: var(--color-neutral); margin-bottom: 14px; }
+    canvas { max-height: 200px; }
+
+    /* ── Tables ── */
+    .tables-grid { display: grid; grid-template-columns: repeat(auto-fit, minmax(300px, 1fr)); gap: 16px; margin-bottom: 24px; }
+    .table-box { background: var(--color-card); border-radius: 8px; padding: 18px 20px; box-shadow: 0 1px 3px rgba(0,0,0,.06); overflow-x: auto; }
+    .table-box.full { grid-column: 1 / -1; }
+    .table-box h2 { font-size: .75rem; font-weight: 600; text-transform: uppercase; letter-spacing: .5px; color: var(--color-neutral); margin-bottom: 12px; }
+    table { width: 100%; border-collapse: collapse; font-size: .81rem; }
+    thead tr { background: var(--table-header-bg); color: var(--table-header-text); }
+    th { padding: 8px 10px; text-align: left; font-weight: 600; font-size: .73rem; white-space: nowrap; }
+    td { padding: 7px 10px; border-top: 1px solid var(--color-border); white-space: nowrap; }
+    tbody tr:nth-child(even) td { background: var(--table-row-alt); }
+    tbody tr:hover td { background: #f0f4ff; }
+    .history-table tbody tr:first-child td { font-weight: 600; }
+    td.url { max-width: 340px; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; font-size: .78rem; }
+    td.url a { color: var(--color-accent); text-decoration: none; }
+    td.url a:hover { text-decoration: underline; }
+
+    .loading { text-align: center; padding: 80px; color: var(--color-neutral); }
+    .error   { text-align: center; padding: 80px; color: var(--color-danger); }
+
+    /* ── Modal ── */
+    dialog { border: none; border-radius: 10px; padding: 0; box-shadow: 0 8px 32px rgba(0,0,0,.18); max-width: 540px; width: 90%; position: fixed; top: 50%; left: 50%; transform: translate(-50%, -50%); margin: 0; }
+    dialog::backdrop { background: rgba(0,0,0,.4); }
+    .modal-header { display: flex; align-items: flex-start; justify-content: space-between; gap: 12px; padding: 20px 22px 14px; border-bottom: 1px solid var(--color-border); }
+    .modal-title { font-size: .9rem; font-weight: 700; line-height: 1.4; }
+    .modal-badges { display: flex; gap: 6px; margin-top: 6px; }
+    .modal-close { background: none; border: none; font-size: 1.2rem; cursor: pointer; color: var(--color-neutral); padding: 0; flex-shrink: 0; line-height: 1; }
+    .modal-close:hover { color: var(--color-primary); }
+    .modal-body { padding: 18px 22px 22px; }
+    .modal-body h4 { font-size: .72rem; text-transform: uppercase; letter-spacing: .5px; color: var(--color-neutral); margin-bottom: 8px; font-weight: 600; }
+    .modal-body p { font-size: .84rem; line-height: 1.65; color: var(--color-primary); margin-bottom: 16px; }
+    .modal-body p:last-child { margin-bottom: 0; }
+    .clickable-row { cursor: pointer; }
+    .clickable-row:hover td { background: #eef2ff !important; }
+
+    /* ── AI Analysis ── */
+    .ai-block { background: var(--color-card); border-radius: 8px; padding: 22px 24px; box-shadow: 0 1px 3px rgba(0,0,0,.06); border-left: 4px solid var(--color-accent); margin-bottom: 32px; }
+    .ai-block.expert { border-left-color: var(--color-primary); }
+    .ai-block .ai-header { display: flex; align-items: center; justify-content: space-between; margin-bottom: 14px; }
+    .ai-block .ai-title { font-size: .8rem; font-weight: 700; text-transform: uppercase; letter-spacing: .5px; color: var(--color-accent); }
+    .ai-block.expert .ai-title { color: var(--color-primary); }
+    .ai-block .ai-date { font-size: .73rem; color: var(--color-neutral); }
+    .ai-block .ai-body { font-size: .85rem; line-height: 1.7; color: var(--color-primary); }
+    .ai-loading { color: var(--color-neutral); font-size: .83rem; font-style: italic; }
+
+    /* ── Cards issues/warnings spéciales ── */
+    .card.wide { grid-column: span 2; display: flex; flex-direction: column; justify-content: space-between; }
+    .card.wide .value { font-size: 2.4rem; }
+    .card-link { display: inline-block; margin-top: 10px; font-size: .73rem; font-weight: 600; color: var(--color-accent); text-decoration: none; cursor: pointer; border: none; background: none; font-family: var(--font-family); padding: 0; }
+    .card-link:hover { text-decoration: underline; }
+
+    /* ── Crawl Overview sections ── */
+    .overview-meta { display: grid; grid-template-columns: repeat(auto-fit, minmax(200px, 1fr)); gap: 10px; margin-bottom: 24px; }
+    .meta-item { background: var(--color-card); border-radius: 8px; padding: 12px 16px; box-shadow: 0 1px 3px rgba(0,0,0,.06); display: flex; justify-content: space-between; align-items: center; }
+    .meta-item .mk { font-size: .78rem; color: var(--color-neutral); }
+    .meta-item .mv { font-size: .88rem; font-weight: 600; }
+    .section-title { font-size: .72rem; font-weight: 700; text-transform: uppercase; letter-spacing: .6px; color: var(--header-bg); background: var(--color-bg); padding: 6px 0 4px; margin: 18px 0 8px; border-bottom: 2px solid var(--color-border); }
+    .overview-section table td:first-child { font-size: .8rem; color: var(--color-primary); max-width: 280px; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+    .overview-section table td:nth-child(2) { font-weight: 600; text-align: right; }
+    .overview-section table td:nth-child(3) { color: var(--color-neutral); font-size: .78rem; text-align: right; }
+
+    /* ── Issues filters ── */
+    .filter-bar { display: flex; align-items: center; gap: 8px; margin-bottom: 16px; flex-wrap: wrap; }
+    .filter-btn { padding: 5px 14px; border-radius: 20px; border: 1px solid var(--color-border); background: var(--color-card); font-family: var(--font-family); font-size: .78rem; cursor: pointer; font-weight: 500; transition: all .15s; }
+    .filter-btn:hover { border-color: var(--color-accent); color: var(--color-accent); }
+    .filter-btn.active { background: var(--color-primary); color: #fff; border-color: var(--color-primary); }
+    .filter-btn.issue   { background: var(--color-danger);  color: #fff; border-color: var(--color-danger); }
+    .filter-btn.warning { background: var(--color-warning); color: #fff; border-color: var(--color-warning); }
+    .filter-btn.opport  { background: var(--color-accent);  color: #fff; border-color: var(--color-accent); }
+    .badge { display: inline-block; padding: 1px 7px; border-radius: 10px; font-size: .7rem; font-weight: 700; margin-left: 4px; }
+    .badge-issue   { background: #fee2e2; color: var(--color-danger); }
+    .badge-warning { background: #fef3c7; color: #92400e; }
+    .badge-opport  { background: #dbeafe; color: #1e40af; }
+    td.issue-type-issue   { color: var(--color-danger);  font-weight: 600; font-size: .75rem; }
+    td.issue-type-warning { color: var(--color-warning); font-weight: 600; font-size: .75rem; }
+    td.issue-type-opport  { color: var(--color-accent);  font-weight: 600; font-size: .75rem; }
+    td.priority-high   { color: var(--color-danger);  font-size: .75rem; }
+    td.priority-medium { color: var(--color-warning); font-size: .75rem; }
+    td.priority-low    { color: var(--color-neutral); font-size: .75rem; }
+    .issue-name { font-size: .81rem; }
+    .issue-desc { font-size: .73rem; color: var(--color-neutral); max-width: 400px; white-space: normal; line-height: 1.35; }
+
+    /* ── Mobile ── */
+    @media (max-width: 768px) {
+      body { height: auto; overflow: visible; }
+      .layout { flex-direction: column; }
+      .sidebar { width: 100%; height: auto; border-right: none; border-bottom: 1px solid var(--color-border); overflow-y: visible; }
+      .sidebar-nav { display: flex; overflow-x: auto; padding: 0; scrollbar-width: none; }
+      .sidebar-nav::-webkit-scrollbar { display: none; }
+      .nav-section { display: none; }
+      .nav-btn { flex-direction: column; gap: 3px; padding: 10px 12px; font-size: .68rem; opacity: 1; border-left: none; border-bottom: 3px solid transparent; flex-shrink: 0; }
+      .nav-btn.active { border-left-color: transparent; border-bottom-color: var(--tab-active-bg); background: none; }
+      .nav-icon { width: auto; }
+      .main { overflow-y: auto; }
+      .cards { grid-template-columns: repeat(2, 1fr); }
+      .card.wide { grid-column: span 2; }
+      .tab-content { padding: 16px; }
+      .charts { grid-template-columns: 1fr; }
+      .overview-grid { grid-template-columns: 1fr; }
+      header h1 { font-size: .85rem; }
+      .issue-desc { display: none; }
+    }
+    @media (max-width: 480px) {
+      .cards { grid-template-columns: 1fr; }
+      .card.wide { grid-column: span 1; }
+    }
+  </style>
+</head>
+<body>
+
+<header>
+  <h1 id="site-title">SEO Dashboard</h1>
+  <span class="last-crawl" id="last-crawl">Chargement…</span>
+</header>
+
+<dialog id="issue-modal">
+  <div class="modal-header">
+    <div>
+      <div class="modal-title" id="modal-title"></div>
+      <div class="modal-badges" id="modal-badges"></div>
+    </div>
+    <button class="modal-close" onclick="document.getElementById('issue-modal').close()">✕</button>
+  </div>
+  <div class="modal-body">
+    <h4>Description</h4>
+    <p id="modal-desc"></p>
+    <h4>How to Fix</h4>
+    <p id="modal-fix"></p>
+  </div>
+</dialog>
+
+<div class="layout">
+  <aside class="sidebar">
+    <nav class="sidebar-nav">
+      <div class="nav-section">Général</div>
+      <button class="nav-btn active" data-tab="overview"><span class="nav-icon"><i class="fa-solid fa-gauge-high"></i></span>Vue d'ensemble</button>
+      <button class="nav-btn" data-tab="aiexpert"><span class="nav-icon"><i class="fa-solid fa-wand-magic-sparkles"></i></span>Analyse experte</button>
+      <div class="nav-section">SEO</div>
+      <button class="nav-btn" data-tab="onpage"><span class="nav-icon"><i class="fa-solid fa-file-lines"></i></span>On-Page</button>
+      <button class="nav-btn" data-tab="structure"><span class="nav-icon"><i class="fa-solid fa-sitemap"></i></span>Site Structure</button>
+      <button class="nav-btn" data-tab="technique"><span class="nav-icon"><i class="fa-solid fa-gear"></i></span>Technique</button>
+      <button class="nav-btn" data-tab="images"><span class="nav-icon"><i class="fa-solid fa-image"></i></span>Images</button>
+      <button class="nav-btn" data-tab="searchconsole"><span class="nav-icon"><i class="fa-brands fa-google"></i></span>Search Console</button>
+      <div class="nav-section">Rapports</div>
+      <button class="nav-btn" data-tab="crawloverview"><span class="nav-icon"><i class="fa-solid fa-table-list"></i></span>Crawl Overview</button>
+      <button class="nav-btn" data-tab="issues"><span class="nav-icon"><i class="fa-solid fa-circle-exclamation"></i></span>Rapport d'erreurs</button>
+    </nav>
+  </aside>
+
+  <main class="main" id="main">
+    <div class="loading">Chargement des données…</div>
+  </main>
+</div>
+
+<script>
+const CSV_URL      = 'https://raw.githubusercontent.com/willotalexispro/sanity-check-spilou/main/results/crawl_history.csv';
+const AI_URL       = 'https://raw.githubusercontent.com/willotalexispro/sanity-check-spilou/main/results/latest/ai_analysis.json';
+const OVERVIEW_URL = 'https://raw.githubusercontent.com/willotalexispro/sanity-check-spilou/main/results/latest/crawl_overview.csv';
+const ISSUES_URL   = 'https://raw.githubusercontent.com/willotalexispro/sanity-check-spilou/main/results/latest/issues_overview_report.csv';
+
+// ── CSV ──────────────────────────────────────────────────────────────────────
+function parseCSV(text) {
+  const lines = text.trim().split('\n');
+  const headers = parseRow(lines[0]);
+  return lines.slice(1).filter(l => l.trim()).map(line => {
+    const vals = parseRow(line);
+    const obj = {};
+    headers.forEach((h, i) => obj[h] = (vals[i] ?? '').trim());
+    return obj;
+  });
+}
+function parseRow(line) {
+  const r = []; let cur = '', inQ = false;
+  for (const c of line) {
+    if (c === '"') inQ = !inQ;
+    else if (c === ',' && !inQ) { r.push(cur); cur = ''; }
+    else cur += c;
+  }
+  r.push(cur); return r;
+}
+function n(v) { return parseInt((v || '0').replace(/,/g,''), 10) || 0; }
+function esc(s) { return (s||'').replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;').replace(/"/g,'&quot;'); }
+function replaceIcons(s) {
+  return s
+    .replace(/📊/g, '<i class="fa-solid fa-chart-bar" style="color:var(--color-accent)"></i>')
+    .replace(/✅/g, '<i class="fa-solid fa-circle-check" style="color:var(--color-success)"></i>')
+    .replace(/↪️/g,  '<i class="fa-solid fa-turn-right" style="color:var(--color-neutral)"></i>')
+    .replace(/❌/g, '<i class="fa-solid fa-circle-xmark" style="color:var(--color-danger)"></i>')
+    .replace(/💥/g, '<i class="fa-solid fa-triangle-exclamation" style="color:var(--color-danger)"></i>')
+    .replace(/🔴/g, '<i class="fa-solid fa-circle" style="color:var(--color-danger)"></i>')
+    .replace(/🟡/g, '<i class="fa-solid fa-circle" style="color:var(--color-warning)"></i>')
+    .replace(/🚫/g, '<i class="fa-solid fa-ban" style="color:var(--color-neutral)"></i>');
+}
+function mdToHtml(md) {
+  md = md.replace(/—/g, '-').replace(/–/g, '-');
+  const lines = esc(md).split('\n');
+  let html = '', inList = false;
+  for (const raw of lines) {
+    const l = raw.trim();
+    if (!l) {
+      if (inList) { html += '</ul>'; inList = false; }
+      html += '<br>';
+      continue;
+    }
+    if (/^─+$/.test(l)) {
+      if (inList) { html += '</ul>'; inList = false; }
+      html += '<hr style="border:none;border-top:1px solid var(--color-border);margin:8px 0">';
+    } else if (/^-{3,}$/.test(l)) {
+      if (inList) { html += '</ul>'; inList = false; }
+      // skip --- separators
+    } else if (/^→\s*Action/.test(l)) {
+      if (inList) { html += '</ul>'; inList = false; }
+      html += `<p style="margin:8px 0 4px;padding:6px 10px;background:var(--color-bg);border-left:3px solid var(--color-accent);font-size:.82rem">${fmt(l)}</p>`;
+    } else if (/^###\s/.test(l)) {
+      if (inList) { html += '</ul>'; inList = false; }
+      html += `<p style="font-weight:700;margin-top:10px">${fmt(l.replace(/^###\s/,''))}</p>`;
+    } else if (/^##\s/.test(l)) {
+      if (inList) { html += '</ul>'; inList = false; }
+      html += `<p style="font-weight:700;margin-top:10px">${fmt(l.replace(/^##\s/,''))}</p>`;
+    } else if (/^#\s/.test(l)) {
+      if (inList) { html += '</ul>'; inList = false; }
+      html += `<p style="font-weight:700;margin-top:10px">${fmt(l.replace(/^#\s/,''))}</p>`;
+    } else if (/^[-*]\s/.test(l)) {
+      if (!inList) { html += '<ul style="margin:6px 0 6px 18px;line-height:1.7">'; inList = true; }
+      html += `<li>${fmt(l.replace(/^[-*]\s/,''))}</li>`;
+    } else {
+      if (inList) { html += '</ul>'; inList = false; }
+      html += `<p style="margin:4px 0">${fmt(l)}</p>`;
+    }
+  }
+  if (inList) html += '</ul>';
+  return html;
+  function fmt(s) { return replaceIcons(s.replace(/\*\*(.*?)\*\*/g,'<strong>$1</strong>').replace(/\*(.*?)\*/g,'<em>$1</em>')); }
+}
+
+// ── Sidebar navigation ───────────────────────────────────────────────────────
+document.querySelectorAll('.nav-btn').forEach(btn => {
+  btn.addEventListener('click', () => {
+    document.querySelectorAll('.nav-btn').forEach(b => b.classList.remove('active'));
+    document.querySelectorAll('.tab-panel').forEach(p => p.classList.remove('active'));
+    btn.classList.add('active');
+    const panel = document.getElementById('tab-' + btn.dataset.tab);
+    if (panel) panel.classList.add('active');
+    if (btn.dataset.tab === 'structure'     && !renderedTabs.has('structure'))     renderStructureCharts(window._rows);
+    if (btn.dataset.tab === 'onpage'        && !renderedTabs.has('onpage'))        renderOnPageCharts(window._rows);
+    if (btn.dataset.tab === 'technique'     && !renderedTabs.has('technique'))     renderTechCharts(window._rows);
+    if (btn.dataset.tab === 'images'        && !renderedTabs.has('images'))        renderImagesCharts(window._rows);
+    if (btn.dataset.tab === 'searchconsole'  && !renderedTabs.has('searchconsole'))  renderSearchConsoleCharts(window._rows);
+    if (btn.dataset.tab === 'crawloverview' && !renderedTabs.has('crawloverview')) loadCrawlOverview();
+    if (btn.dataset.tab === 'issues'        && !renderedTabs.has('issues'))        loadIssues();
+    renderedTabs.add(btn.dataset.tab);
+  });
+});
+const renderedTabs = new Set(['overview']);
+
+// ── Card ─────────────────────────────────────────────────────────────────────
+function card(label, key, rows, cls, lib = false) {
+  const last = rows[rows.length - 1];
+  const prev = rows.length > 1 ? rows[rows.length - 2] : null;
+  const val  = n(last[key]);
+  const prevVal = prev ? n(prev[key]) : null;
+  let cmp = '';
+  if (prevVal !== null) {
+    const diff = val - prevVal;
+    if (diff === 0) cmp = `<span class="delta-zero">stable</span>`;
+    else {
+      const good = lib ? diff < 0 : diff > 0;
+      const sign = diff > 0 ? '+' : '';
+      cmp = `<span class="prev">${prevVal.toLocaleString('fr-FR')} →</span>
+             <span class="${good ? 'delta-good' : 'delta-bad'}">${sign}${diff.toLocaleString('fr-FR')}</span>`;
+    }
+  }
+  return `<div class="card ${cls}">
+    <div class="label">${label}</div>
+    <div class="value">${val.toLocaleString('fr-FR')}</div>
+    <div class="comparison">${cmp}</div>
+  </div>`;
+}
+
+// ── Card wide (Issues / Warnings) avec lien vers rapport d'erreurs ───────────
+function cardWide(label, key, rows, cls, lib = false) {
+  const last    = rows[rows.length - 1];
+  const prev    = rows.length > 1 ? rows[rows.length - 2] : null;
+  const val     = n(last[key]);
+  const prevVal = prev ? n(prev[key]) : null;
+  let cmp = '';
+  if (prevVal !== null) {
+    const diff = val - prevVal;
+    if (diff === 0) cmp = `<span class="delta-zero">stable</span>`;
+    else {
+      const good = lib ? diff < 0 : diff > 0;
+      const sign = diff > 0 ? '+' : '';
+      cmp = `<span class="prev">${prevVal.toLocaleString('fr-FR')} →</span>
+             <span class="${good ? 'delta-good' : 'delta-bad'}">${sign}${diff.toLocaleString('fr-FR')}</span>`;
+    }
+  }
+  return `<div class="card ${cls} wide">
+    <div>
+      <div class="label">${label}</div>
+      <div class="value">${val.toLocaleString('fr-FR')}</div>
+      <div class="comparison">${cmp}</div>
+    </div>
+    <button class="card-link" onclick="document.querySelector('[data-tab=issues]').click()">Voir le rapport d'erreurs →</button>
+  </div>`;
+}
+
+// ── Chart ─────────────────────────────────────────────────────────────────────
+const PALETTE = ['--chart-color-1','--chart-color-2','--chart-color-3','--chart-color-4','--chart-color-5'];
+function css(v) { return getComputedStyle(document.documentElement).getPropertyValue(v).trim(); }
+function chart(id, dates, series, stacked) {
+  const ctx = document.getElementById(id);
+  if (!ctx) return;
+  return new Chart(ctx.getContext('2d'), {
+    type: 'line',
+    data: { labels: dates, datasets: series.map((s, i) => ({
+      label: s.label, data: s.data,
+      borderColor: s.color || css(PALETTE[i % PALETTE.length]),
+      backgroundColor: 'transparent',
+      tension: .35, borderWidth: 2,
+      pointRadius: dates.length < 10 ? 4 : 2,
+    }))},
+    options: {
+      responsive: true, maintainAspectRatio: true,
+      plugins: { legend: { position: 'bottom', labels: { font: { size: 10 }, boxWidth: 10, padding: 12 } } },
+      scales: {
+        x: { grid: { display: false }, ticks: { font: { size: 10 }, maxTicksLimit: 8 } },
+        y: { beginAtZero: true, ticks: { font: { size: 10 } }, grid: { color: '#f0f0f0' }, stacked: !!stacked }
+      }
+    }
+  });
+}
+
+// ── Table ─────────────────────────────────────────────────────────────────────
+function table(rows, cols) {
+  const head = '<tr>' + cols.map(c => `<th>${c.label}</th>`).join('') + '</tr>';
+  const body = [...rows].reverse().map(r =>
+    '<tr>' + cols.map(c => {
+      const v = r[c.key];
+      if (v === undefined || v === '') return '<td>—</td>';
+      if (c.raw)  return `<td>${v}</td>`;
+      if (c.url)  return `<td class="url"><a href="${v}" target="_blank" title="${v}">${v}</a></td>`;
+      if (c.pct) {
+        const total = n(r[c.total]);
+        const val   = n(v);
+        const p     = total > 0 ? ((val / total) * 100).toFixed(2) + ' %' : '—';
+        return `<td>${val.toLocaleString('fr-FR')}</td>`;
+      }
+      return `<td>${n(v).toLocaleString('fr-FR')}</td>`;
+    }).join('') + '</tr>'
+  ).join('');
+  return `<table class="history-table"><thead>${head}</thead><tbody>${body}</tbody></table>`;
+}
+
+// ── Top Inlinks table (dernier crawl uniquement) ──────────────────────────────
+function topInlinksTable(last) {
+  const total = n(last['Total URLs Crawled']);
+  let rows = '';
+  for (let i = 1; i <= 10; i++) {
+    const url    = last[`Top Inlinks ${i} URL`];
+    const inlinks = n(last[`Top Inlinks ${i} Number of Inlinks`]);
+    if (!url) break;
+    const pct = total > 0 ? ((inlinks / total) * 100).toFixed(2) + ' %' : '—';
+    rows += `<tr>
+      <td class="url"><a href="${url}" target="_blank">${url}</a></td>
+      <td>${inlinks.toLocaleString('fr-FR')}</td>
+      <td>${pct}</td>
+    </tr>`;
+  }
+  return `<table>
+    <thead><tr><th>URL</th><th>Total Inlinks</th><th>% du crawl</th></tr></thead>
+    <tbody>${rows}</tbody>
+  </table>`;
+}
+
+// ── MAIN ─────────────────────────────────────────────────────────────────────
+async function init() {
+  const main = document.getElementById('main');
+  try {
+    const res = await fetch(CSV_URL + '?_=' + Date.now());
+    if (!res.ok) throw new Error('HTTP ' + res.status);
+    const rows = parseCSV(await res.text());
+    if (!rows.length) throw new Error('Aucune donnée');
+    window._rows = rows;
+
+    const last  = rows[rows.length - 1];
+    const dates = rows.map(r => r.crawl_date);
+
+    const siteName = last['Site Crawled'] || '';
+    document.getElementById('site-title').textContent = 'SEO Dashboard — ' + siteName;
+    document.getElementById('last-crawl').textContent  = 'Dernier crawl : ' + (last.crawl_date || '—');
+    // Favicon dynamique — première lettre du site crawlé
+    (function() {
+      const letter = (siteName.replace(/^https?:\/\/(www\.)?/,'').charAt(0) || 'S').toUpperCase();
+      const style  = getComputedStyle(document.documentElement);
+      const bg     = style.getPropertyValue('--header-bg').trim()  || '#1a1a2e';
+      const fg     = style.getPropertyValue('--header-text').trim() || '#ffffff';
+      const c = document.createElement('canvas'); c.width = c.height = 64;
+      const ctx = c.getContext('2d');
+      ctx.fillStyle = bg; ctx.beginPath(); ctx.roundRect(0, 0, 64, 64, 12); ctx.fill();
+      ctx.fillStyle = fg; ctx.font = 'bold 36px sans-serif'; ctx.textAlign = 'center'; ctx.textBaseline = 'middle';
+      ctx.fillText(letter, 32, 33);
+      const link = document.querySelector("link[rel~='icon']") || document.createElement('link');
+      link.rel = 'icon'; link.href = c.toDataURL();
+      document.head.appendChild(link);
+    })();
+
+    // ══ TAB: Vue d'ensemble ═══════════════════════════════════════════════════
+    const tabOverview = `<div class="container">
+      <div class="ai-block">
+        <div class="ai-header">
+          <span class="ai-title">✦ Récap du crawl</span>
+          <span class="ai-date" id="ai-date"></span>
+        </div>
+        <div class="ai-body ai-loading" id="ai-summary">Chargement…</div>
+      </div>
+      <div class="cards">
+        ${card('URLs crawlées',   'Total URLs Crawled',                                  rows, 'blue')}
+        ${card('Indexables',      'Total Internal Indexable URLs',                       rows, 'green')}
+        ${card('Non-indexables',  'Total Internal Non-Indexable URLs',                   rows, 'orange', true)}
+        ${card('Redirections 3xx','Response Codes:Internal Redirection (3xx)',           rows, 'blue',  true)}
+        ${card('Erreurs 4xx',     'Response Codes:Internal Client Error (4xx)',          rows, 'red',   true)}
+        ${card('Erreurs 5xx',     'Response Codes:Internal Server Error (5xx)',          rows, 'red',   true)}
+      </div>
+      <div class="charts">
+        <div class="chart-box"><h2>URLs crawlées</h2><canvas id="c-urls"></canvas></div>
+        <div class="chart-box"><h2>Codes réponse internes</h2><canvas id="c-codes"></canvas></div>
+        <div class="chart-box"><h2>Issues / Warnings / Opportunities</h2><canvas id="c-issues"></canvas></div>
+        <div class="chart-box"><h2>Erreurs 4xx &amp; 5xx</h2><canvas id="c-errors"></canvas></div>
+      </div>
+      <div class="tables-grid">
+        <div class="table-box full"><h2>Historique</h2>
+          ${table(rows, [
+            { key:'crawl_date', raw:true, label:'Date' },
+            { key:'Total URLs Crawled',                                  label:'Crawlées' },
+            { key:'Total Internal Indexable URLs',                       label:'Indexables' },
+            { key:'Total Internal Non-Indexable URLs',                   label:'Non-index.' },
+            { key:'Response Codes:Internal Success (2xx)',               label:'2xx' },
+            { key:'Response Codes:Internal Redirection (3xx)',           label:'3xx' },
+            { key:'Response Codes:Internal Client Error (4xx)',          label:'4xx' },
+            { key:'Response Codes:Internal Server Error (5xx)',          label:'5xx' },
+            { key:'Issues',                                              label:'Issues' },
+            { key:'Warnings',                                            label:'Warnings' },
+            { key:'Opportunities',                                       label:'Opport.' },
+          ])}
+        </div>
+      </div>
+    </div>`;
+
+    // ══ TAB: On-Page ══════════════════════════════════════════════════════════
+    const tabOnPage = `<div class="container">
+      <div class="charts">
+        <div class="chart-box"><h2>Missing Elements</h2><canvas id="c-missing"></canvas></div>
+        <div class="chart-box"><h2>Duplicate Elements</h2><canvas id="c-duplicate"></canvas></div>
+        <div class="chart-box"><h2>Long (Over limit)</h2><canvas id="c-long"></canvas></div>
+        <div class="chart-box"><h2>Short (Under limit)</h2><canvas id="c-short"></canvas></div>
+      </div>
+      <div class="tables-grid">
+        <div class="table-box"><h2>Page Titles</h2>
+          ${table(rows, [
+            { key:'crawl_date',                    raw:true, label:'Date' },
+            { key:'Page Titles:Missing',                     label:'Missing' },
+            { key:'Page Titles:Duplicate',                   label:'Duplicate' },
+            { key:'Total URLs Encountered',                  label:'Total URLs' },
+            { key:'Page Titles:Below X Characters',          label:'Under Limit' },
+            { key:'Page Titles:Over X Characters',           label:'Over Limit' },
+          ])}
+        </div>
+        <div class="table-box"><h2>Meta Descriptions</h2>
+          ${table(rows, [
+            { key:'crawl_date',                         raw:true, label:'Date' },
+            { key:'Meta Description:Missing',                     label:'Missing' },
+            { key:'Meta Description:Duplicate',                   label:'Duplicate' },
+            { key:'Meta Description:Over X Characters',           label:'Over Limit' },
+            { key:'Meta Description:Below X Characters',          label:'Under Limit' },
+          ])}
+        </div>
+        <div class="table-box"><h2>H1 Tags</h2>
+          ${table(rows, [
+            { key:'crawl_date',           raw:true, label:'Date' },
+            { key:'H1:Missing',                     label:'Missing' },
+            { key:'H1:Duplicate',                   label:'Duplicate' },
+            { key:'H1:Multiple',                    label:'Multiple H1' },
+            { key:'H1:Over X Characters',           label:'Over Limit' },
+          ])}
+        </div>
+      </div>
+    </div>`;
+
+    // ══ TAB: Site Structure ═══════════════════════════════════════════════════
+    const tabStructure = `<div class="container">
+      <div class="charts">
+        <div class="chart-box full"><h2>Site Structure Changes — Crawl Depth</h2><canvas id="c-depth"></canvas></div>
+      </div>
+      <div class="tables-grid">
+        <div class="table-box full"><h2>Top 10 Most Linked Pages (Latest Crawl)</h2>
+          ${topInlinksTable(last)}
+        </div>
+      </div>
+    </div>`;
+
+    // ══ TAB: Technique ════════════════════════════════════════════════════════
+    const tabTechnique = `<div class="container">
+      <div class="cards">
+        ${card('Canonicals manquants',    'Canonicals:Missing',                    rows, 'red',   true)}
+        ${card('Canoni. conflictuels',    'Canonicals:Multiple Conflicting',       rows, 'red',   true)}
+        ${card('Non-indexable canonical', 'Canonicals:Non-Indexable Canonical',    rows, 'orange',true)}
+        ${card('Noindex',                 'Directives:Noindex',                    rows, 'orange',true)}
+        ${card('Hors sitemap',            'Sitemaps:URLs not in Sitemap',          rows, 'orange',true)}
+        ${card('Orphelines sitemap',      'Sitemaps:Orphan URLs',                  rows, 'red',   true)}
+      </div>
+      <div class="charts">
+        <div class="chart-box"><h2>Canonicals</h2><canvas id="c-canon"></canvas></div>
+        <div class="chart-box"><h2>Directives</h2><canvas id="c-dir"></canvas></div>
+        <div class="chart-box full"><h2>Sitemaps</h2><canvas id="c-sitemap"></canvas></div>
+      </div>
+      <div class="tables-grid">
+        <div class="table-box"><h2>Canonicals</h2>
+          ${table(rows, [
+            { key:'crawl_date',                        raw:true, label:'Date' },
+            { key:'Canonicals:Missing',                          label:'Manquants' },
+            { key:'Canonicals:Canonicalised',                    label:'Canonicalisés' },
+            { key:'Canonicals:Multiple Conflicting',             label:'Conflictuels' },
+            { key:'Canonicals:Non-Indexable Canonical',          label:'Non-indexable' },
+            { key:'Canonicals:Self Referencing',                 label:'Self-ref.' },
+          ])}
+        </div>
+        <div class="table-box"><h2>Directives &amp; Sitemaps</h2>
+          ${table(rows, [
+            { key:'crawl_date',                          raw:true, label:'Date' },
+            { key:'Directives:Noindex',                           label:'Noindex' },
+            { key:'Directives:Nofollow',                          label:'Nofollow' },
+            { key:'Sitemaps:URLs not in Sitemap',                 label:'Hors sitemap' },
+            { key:'Sitemaps:Orphan URLs',                         label:'Orphelines' },
+            { key:'Sitemaps:Non-Indexable URLs in Sitemap',       label:'Non-index. sitemap' },
+          ])}
+        </div>
+      </div>
+    </div>`;
+
+    // ══ TAB: Images ═══════════════════════════════════════════════════════════
+    const tabImages = `<div class="container">
+      <div class="cards">
+        ${card('Total images',          'Images:All',                       rows, 'blue')}
+        ${card('Sans alt text',         'Images:Missing Alt Text',          rows, 'red',   true)}
+        ${card('Trop lourdes (>100kB)', 'Images:Over X KB',                 rows, 'orange',true)}
+        ${card('Mal dimensionnées',     'Images:Incorrectly Sized Images',  rows, 'orange',true)}
+        ${card('Attribut alt manquant', 'Images:Missing Alt Attribute',     rows, 'red',   true)}
+      </div>
+      <div class="charts">
+        <div class="chart-box full"><h2>Évolution des problèmes images</h2><canvas id="c-img"></canvas></div>
+      </div>
+      <div class="tables-grid">
+        <div class="table-box full"><h2>Historique images</h2>
+          ${table(rows, [
+            { key:'crawl_date',                        raw:true, label:'Date' },
+            { key:'Images:All',                                  label:'Total' },
+            { key:'Images:Missing Alt Text',                     label:'Sans alt text' },
+            { key:'Images:Missing Alt Attribute',                label:'Attr. manquant' },
+            { key:'Images:Over X KB',                            label:'>100kB' },
+            { key:'Images:Incorrectly Sized Images',             label:'Mal dimensionnées' },
+            { key:'Images:Background Images',                    label:'Background' },
+          ])}
+        </div>
+      </div>
+    </div>`;
+
+    main.innerHTML = `
+      <div id="tab-overview"  class="tab-panel active">${tabOverview}</div>
+      <div id="tab-onpage"    class="tab-panel">${tabOnPage}</div>
+      <div id="tab-structure" class="tab-panel">${tabStructure}</div>
+      <div id="tab-technique" class="tab-panel">${tabTechnique}</div>
+      <div id="tab-images"       class="tab-panel">${tabImages}</div>
+      <div id="tab-aiexpert" class="tab-panel">
+        <div class="container">
+          <div class="ai-block expert">
+            <div class="ai-header">
+              <span class="ai-title">⬡ Analyse experte</span>
+              <span class="ai-date" id="ai-expert-date"></span>
+            </div>
+            <div class="ai-body ai-loading" id="ai-body">Chargement…</div>
+          </div>
+        </div>
+      </div>
+      <div id="tab-searchconsole"  class="tab-panel"></div>
+      <div id="tab-crawloverview" class="tab-panel"><div class="loading">Chargement…</div></div>
+      <div id="tab-issues"        class="tab-panel"><div class="loading">Chargement…</div></div>`;
+
+    // ── Charts Vue d'ensemble ──
+    // Charger l'analyse IA
+    fetch(AI_URL + '?_=' + Date.now())
+      .then(r => r.ok ? r.json() : null)
+      .then(data => {
+        const body = document.getElementById('ai-body');
+        const date = document.getElementById('ai-date');
+        if (!data) { body.textContent = 'Aucune analyse disponible — lancer un crawl pour générer l\'analyse.'; body.classList.add('ai-loading'); return; }
+        date.textContent = 'Généré le ' + data.generated_at;
+        const summary = document.getElementById('ai-summary');
+        summary.classList.remove('ai-loading');
+        summary.innerHTML = mdToHtml(data.dashboard_summary || data.summary || '—');
+        const expertDate = document.getElementById('ai-expert-date');
+        if (expertDate) expertDate.textContent = 'Généré le ' + data.generated_at;
+        body.classList.remove('ai-loading');
+        body.innerHTML = mdToHtml(data.analysis || '—');
+      })
+      .catch(() => {
+        const body = document.getElementById('ai-body');
+        body.textContent = 'Analyse non disponible pour ce crawl.';
+      });
+
+    chart('c-urls', dates, [
+      { label:'Total crawlées',  data: rows.map(r => n(r['Total URLs Crawled'])) },
+      { label:'Indexables',      data: rows.map(r => n(r['Total Internal Indexable URLs'])) },
+      { label:'Non-indexables',  data: rows.map(r => n(r['Total Internal Non-Indexable URLs'])) },
+    ]);
+    chart('c-codes', dates, [
+      { label:'2xx', data: rows.map(r => n(r['Response Codes:Internal Success (2xx)'])) },
+      { label:'3xx', data: rows.map(r => n(r['Response Codes:Internal Redirection (3xx)'])) },
+      { label:'4xx', data: rows.map(r => n(r['Response Codes:Internal Client Error (4xx)'])) },
+      { label:'5xx', data: rows.map(r => n(r['Response Codes:Internal Server Error (5xx)'])) },
+    ]);
+    chart('c-issues', dates, [
+      { label:'Issues',        data: rows.map(r => n(r['Issues'])) },
+      { label:'Warnings',      data: rows.map(r => n(r['Warnings'])) },
+      { label:'Opportunities', data: rows.map(r => n(r['Opportunities'])) },
+    ]);
+    chart('c-errors', dates, [
+      { label:'4xx', data: rows.map(r => n(r['Response Codes:Internal Client Error (4xx)'])) },
+      { label:'5xx', data: rows.map(r => n(r['Response Codes:Internal Server Error (5xx)'])) },
+    ]);
+
+  } catch(e) {
+    main.innerHTML = `<div class="error">Erreur : ${e.message}</div>`;
+  }
+}
+
+// ── Lazy chart renderers ─────────────────────────────────────────────────────
+function renderOnPageCharts(rows) {
+  const dates = rows.map(r => r.crawl_date);
+  chart('c-missing', dates, [
+    { label:'Page Titles',      data: rows.map(r => n(r['Page Titles:Missing'])) },
+    { label:'Meta Description', data: rows.map(r => n(r['Meta Description:Missing'])) },
+    { label:'H1',               data: rows.map(r => n(r['H1:Missing'])) },
+  ]);
+  chart('c-duplicate', dates, [
+    { label:'Page Titles',      data: rows.map(r => n(r['Page Titles:Duplicate'])) },
+    { label:'Meta Description', data: rows.map(r => n(r['Meta Description:Duplicate'])) },
+    { label:'H1',               data: rows.map(r => n(r['H1:Duplicate'])) },
+  ]);
+  chart('c-long', dates, [
+    { label:'Page Title',       data: rows.map(r => n(r['Page Titles:Over X Characters'])) },
+    { label:'Meta Description', data: rows.map(r => n(r['Meta Description:Over X Characters'])) },
+  ]);
+  chart('c-short', dates, [
+    { label:'Page Title',       data: rows.map(r => n(r['Page Titles:Below X Characters'])) },
+    { label:'Meta Description', data: rows.map(r => n(r['Meta Description:Below X Characters'])) },
+  ]);
+}
+
+function renderStructureCharts(rows) {
+  const dates = rows.map(r => r.crawl_date);
+  chart('c-depth', dates, [
+    { label:'Depth 1',  data: rows.map(r => n(r['Depth 1'])) },
+    { label:'Depth 2',  data: rows.map(r => n(r['Depth 2'])) },
+    { label:'Depth 3',  data: rows.map(r => n(r['Depth 3'])) },
+    { label:'Depth 4',  data: rows.map(r => n(r['Depth 4'])) },
+    { label:'Depth 5',  data: rows.map(r => n(r['Depth 5'])) },
+  ]);
+}
+
+function renderTechCharts(rows) {
+  const dates = rows.map(r => r.crawl_date);
+  chart('c-canon', dates, [
+    { label:'Manquants',     data: rows.map(r => n(r['Canonicals:Missing'])) },
+    { label:'Conflictuels',  data: rows.map(r => n(r['Canonicals:Multiple Conflicting'])) },
+    { label:'Non-indexable', data: rows.map(r => n(r['Canonicals:Non-Indexable Canonical'])) },
+    { label:'Canonicalisés', data: rows.map(r => n(r['Canonicals:Canonicalised'])) },
+  ]);
+  chart('c-dir', dates, [
+    { label:'Noindex',   data: rows.map(r => n(r['Directives:Noindex'])) },
+    { label:'Nofollow',  data: rows.map(r => n(r['Directives:Nofollow'])) },
+  ]);
+  chart('c-sitemap', dates, [
+    { label:'Hors sitemap',        data: rows.map(r => n(r['Sitemaps:URLs not in Sitemap'])) },
+    { label:'Orphelines',          data: rows.map(r => n(r['Sitemaps:Orphan URLs'])) },
+    { label:'Non-index. sitemap',  data: rows.map(r => n(r['Sitemaps:Non-Indexable URLs in Sitemap'])) },
+  ]);
+}
+
+function renderImagesCharts(rows) {
+  const dates = rows.map(r => r.crawl_date);
+  chart('c-img', dates, [
+    { label:'Sans alt text',     data: rows.map(r => n(r['Images:Missing Alt Text'])) },
+    { label:'>100kB',            data: rows.map(r => n(r['Images:Over X KB'])) },
+    { label:'Mal dimensionnées', data: rows.map(r => n(r['Images:Incorrectly Sized Images'])) },
+    { label:'Attr. manquant',    data: rows.map(r => n(r['Images:Missing Alt Attribute'])) },
+  ]);
+}
+
+// ── Search Console ───────────────────────────────────────────────────────────
+function renderSearchConsoleCharts(rows) {
+  const SC = 'Search Console:';
+  const dates = rows.map(r => r.crawl_date);
+  const panel = document.getElementById('tab-searchconsole');
+
+  panel.innerHTML = `<div class="container">
+    <div class="cards">
+      ${card('Total',                             SC+'All',                                      rows, 'blue')}
+      ${card('Not on Google',                     SC+'URL is Not on Google',                     rows, 'red',   true)}
+      ${card('Indexable non indexé',              SC+'Indexable URL Not Indexed',                rows, 'red',   true)}
+      ${card('Has Issues',                        SC+'URL is on Google But Has Issues',          rows, 'orange',true)}
+      ${card('Not Mobile Friendly',               SC+'Page is Not Mobile Friendly',             rows, 'orange',true)}
+    </div>
+    <div class="charts">
+      <div class="chart-box"><h2>Visibilité Google</h2><canvas id="c-sc-visibility"></canvas></div>
+      <div class="chart-box"><h2>Problèmes détectés</h2><canvas id="c-sc-issues"></canvas></div>
+    </div>
+    <div class="tables-grid">
+      <div class="table-box full"><h2>Historique Search Console</h2>
+        ${table(rows, [
+          { key:'crawl_date',                                          raw:true, label:'Date' },
+          { key:SC+'All',                                                        label:'Total' },
+          { key:SC+'Clicks Above 0',                                             label:'Clicks > 0' },
+          { key:SC+'URL is Not on Google',                                       label:'Not on Google' },
+          { key:SC+'Indexable URL Not Indexed',                                  label:'Indexable non indexé' },
+          { key:SC+'URL is on Google But Has Issues',                            label:'Has Issues' },
+          { key:SC+'User-Declared Canonical Not Selected',                       label:'Canonical non sélect.' },
+          { key:SC+'Page is Not Mobile Friendly',                               label:'Not Mobile Friendly' },
+          { key:SC+'Non-Indexable with Search Analytics Data',                   label:'Non-index. avec data' },
+          { key:SC+'Orphan URLs',                                                label:'Orphan URLs' },
+          { key:SC+'Rich Result Invalid',                                        label:'Rich Result Invalid' },
+        ])}
+      </div>
+    </div>
+  </div>`;
+
+  chart('c-sc-visibility', dates, [
+    { label:'Clicks Above 0',       data: rows.map(r => n(r[SC+'Clicks Above 0'])) },
+    { label:'Not on Google',        data: rows.map(r => n(r[SC+'URL is Not on Google'])) },
+    { label:'Indexable non indexé', data: rows.map(r => n(r[SC+'Indexable URL Not Indexed'])) },
+  ]);
+  chart('c-sc-issues', dates, [
+    { label:'Has Issues',                data: rows.map(r => n(r[SC+'URL is on Google But Has Issues'])) },
+    { label:'Canonical non sélect.',     data: rows.map(r => n(r[SC+'User-Declared Canonical Not Selected'])) },
+    { label:'Not Mobile Friendly',       data: rows.map(r => n(r[SC+'Page is Not Mobile Friendly'])) },
+    { label:'Rich Result Invalid',       data: rows.map(r => n(r[SC+'Rich Result Invalid'])) },
+  ]);
+}
+
+// ── Crawl Overview ───────────────────────────────────────────────────────────
+async function loadCrawlOverview() {
+  const panel = document.getElementById('tab-crawloverview');
+  try {
+    const text = await (await fetch(OVERVIEW_URL + '?_=' + Date.now())).text();
+    const lines = text.trim().split('\n').map(l => parseRow(l.replace(/^\uFEFF/,'')));
+
+    // Séparer métadonnées top-level et sections
+    const META_KEYS = ['Site Crawled','Start Date','Start Time','Last Modified Date','Last Modified Time','Elapsed','Report Date','Report Time'];
+    const meta = {};
+    const sections = {};
+    let currentSection = null;
+
+    for (const row of lines) {
+      const a = row[0]?.trim().replace(/^"|"$/g,'') || '';
+      const b = row[1]?.trim().replace(/^"|"$/g,'') || '';
+      const c = row[2]?.trim().replace(/^"|"$/g,'') || '';
+      if (!a) continue;
+      if (META_KEYS.includes(a)) { meta[a] = b; continue; }
+      // section header : col_b non-numérique ET col_c présent
+      const bNum = !isNaN(parseFloat(b.replace(',','.')));
+      if (!b || (!bNum && c)) { currentSection = a; sections[a] = sections[a] || []; continue; }
+      if (currentSection) sections[currentSection].push({ name: a, value: b, pct: c });
+    }
+
+    const metaHTML = META_KEYS.map(k => `
+      <div class="meta-item"><span class="mk">${k}</span><span class="mv">${meta[k] || '—'}</span></div>`).join('');
+
+    const sectionsHTML = Object.entries(sections).map(([sec, rows]) => {
+      if (!rows.length) return '';
+      const trs = rows.map(r =>
+        `<tr><td>${r.name}</td><td>${n(r.value).toLocaleString('fr-FR')}</td><td>${r.pct}</td></tr>`
+      ).join('');
+      return `<div class="overview-section">
+        <div class="section-title">${sec}</div>
+        <table><thead><tr><th>Métrique</th><th style="text-align:right">Valeur</th><th style="text-align:right">%</th></tr></thead>
+        <tbody>${trs}</tbody></table>
+      </div>`;
+    }).join('');
+
+    panel.innerHTML = `<div class="container">
+      <div class="overview-meta">${metaHTML}</div>
+      ${sectionsHTML}
+    </div>`;
+  } catch(e) {
+    panel.innerHTML = `<div class="error">Erreur : ${e.message}</div>`;
+  }
+}
+
+// ── Rapport d'erreurs ────────────────────────────────────────────────────────
+async function loadIssues() {
+  const panel = document.getElementById('tab-issues');
+  try {
+    const text = await (await fetch(ISSUES_URL + '?_=' + Date.now())).text();
+    const rows = parseCSV(text);
+    if (!rows.length) throw new Error('Aucune donnée');
+
+    const issues  = rows.filter(r => r['Issue Type'] === 'Issue');
+    const warnings= rows.filter(r => r['Issue Type'] === 'Warning');
+    const opports = rows.filter(r => r['Issue Type'] === 'Opportunity');
+
+    // Tri par URLs décroissant
+    const sorted = [...rows].sort((a,b) => n(b['URLs']) - n(a['URLs']));
+
+    function renderTable(data) {
+      if (!data.length) return '<p style="color:var(--color-neutral);padding:16px">Aucun élément.</p>';
+      return `<table>
+        <thead><tr>
+          <th>Issue</th><th>Type</th><th>Priorité</th><th>URLs</th><th>%</th><th>Description</th>
+        </tr></thead>
+        <tbody>${data.map(r => {
+          const t  = r['Issue Type'] || '';
+          const p  = r['Issue Priority'] || '';
+          const tc = t==='Issue' ? 'issue-type-issue' : t==='Warning' ? 'issue-type-warning' : 'issue-type-opport';
+          const pc = p==='High'  ? 'priority-high'  : p==='Medium' ? 'priority-medium' : 'priority-low';
+          return `<tr class="clickable-row"
+            data-name="${esc(r['Issue Name']||'')}"
+            data-type="${esc(t)}"
+            data-priority="${esc(p)}"
+            data-desc="${esc(r['Description']||'')}"
+            data-fix="${esc(r['How To Fix']||'')}">
+            <td class="issue-name">${esc(r['Issue Name'])||'—'}</td>
+            <td class="${tc}">${esc(t)}</td>
+            <td class="${pc}">${esc(p)}</td>
+            <td style="font-weight:600">${n(r['URLs']).toLocaleString('fr-FR')}</td>
+            <td style="color:var(--color-neutral)">${esc(r['% of Total'])||'—'} %</td>
+            <td class="issue-desc">${esc(r['Description']||'')}</td>
+          </tr>`;
+        }).join('')}</tbody>
+      </table>`;
+    }
+
+    panel.innerHTML = `<div class="container">
+      <div class="cards" style="margin-bottom:20px">
+        <div class="card red">  <div class="label">Issues</div>  <div class="value">${issues.length}</div></div>
+        <div class="card orange"><div class="label">Warnings</div><div class="value">${warnings.length}</div></div>
+        <div class="card blue"> <div class="label">Opportunities</div><div class="value">${opports.length}</div></div>
+      </div>
+      <div class="table-box">
+        <div class="filter-bar">
+          <button class="filter-btn active" data-filter="all">Tous <span class="badge" style="background:#e5e7eb;color:#374151">${rows.length}</span></button>
+          <button class="filter-btn" data-filter="Issue">Issues <span class="badge badge-issue">${issues.length}</span></button>
+          <button class="filter-btn" data-filter="Warning">Warnings <span class="badge badge-warning">${warnings.length}</span></button>
+          <button class="filter-btn" data-filter="Opportunity">Opportunities <span class="badge badge-opport">${opports.length}</span></button>
+        </div>
+        <div id="issues-table">${renderTable(sorted)}</div>
+      </div>
+    </div>`;
+
+    // Filtres
+    panel.querySelectorAll('.filter-btn').forEach(btn => {
+      btn.addEventListener('click', () => {
+        panel.querySelectorAll('.filter-btn').forEach(b => b.classList.remove('active','issue','warning','opport'));
+        btn.classList.add('active');
+        const f = btn.dataset.filter;
+        const filtered = f === 'all' ? sorted : sorted.filter(r => r['Issue Type'] === f);
+        document.getElementById('issues-table').innerHTML = renderTable(filtered);
+        bindRowClicks();
+      });
+    });
+
+    bindRowClicks();
+
+    function bindRowClicks() {
+      document.querySelectorAll('.clickable-row').forEach(row => {
+        row.addEventListener('click', () => {
+          const modal    = document.getElementById('issue-modal');
+          const t        = row.dataset.type;
+          const p        = row.dataset.priority;
+          const tc       = t==='Issue' ? 'issue-type-issue' : t==='Warning' ? 'issue-type-warning' : 'issue-type-opport';
+          const pc       = p==='High'  ? 'priority-high'   : p==='Medium'  ? 'priority-medium'    : 'priority-low';
+          document.getElementById('modal-title').textContent  = row.dataset.name;
+          document.getElementById('modal-desc').textContent   = row.dataset.desc || '—';
+          document.getElementById('modal-fix').textContent    = row.dataset.fix  || '—';
+          document.getElementById('modal-badges').innerHTML   =
+            `<span class="badge ${tc==='issue-type-issue'?'badge-issue':tc==='issue-type-warning'?'badge-warning':'badge-opport'}">${t}</span>
+             <span class="badge" style="background:#f3f4f6;color:#374151">${p}</span>`;
+          modal.showModal();
+        });
+      });
+    }
+  } catch(e) {
+    panel.innerHTML = `<div class="error">Erreur : ${e.message}</div>`;
+  }
+}
+
+init();
+</script>
+</body>
+</html>
