@@ -1,0 +1,13 @@
+{
+  "name": "crawl-overview-generator",
+  "version": "1.0.0",
+  "description": "Pipeline CSV Screaming Frog vers deck PPTX avec comparaison W-o-W. Bulldozer Collective.",
+  "main": "generate.js",
+  "scripts": {
+    "build": "node generate.js"
+  },
+  "dependencies": {
+    "pptxgenjs": "^4.0.1"
+  },
+  "license": "UNLICENSED"
+}
