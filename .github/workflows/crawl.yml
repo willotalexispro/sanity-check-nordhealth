@@ -1,0 +1,236 @@
+name: Screaming Frog lite - nordhealth.fi
+
+on:
+  schedule:
+    - cron: '0 7 * * 1'  # lundis 7h UTC
+  workflow_dispatch:
+    inputs:
+      generate_deck:
+        description: 'Générer le deck PPTX et envoyer à n8n'
+        type: boolean
+        default: false
+
+env:
+  FORCE_JAVASCRIPT_ACTIONS_TO_NODE24: true
+
+jobs:
+
+  # ── Job 1 : crawl + commit des résultats ─────────────────────────────────────
+  crawl:
+    runs-on: ubuntu-latest
+    permissions:
+      contents: write
+    outputs:
+      crawl_date: ${{ steps.date.outputs.crawl_date }}
+
+    steps:
+      - name: Checkout repo
+        uses: actions/checkout@v4
+
+      - name: Set crawl date
+        id: date
+        run: |
+          DATE=$(date +%Y-%m-%d)
+          echo "CRAWL_DATE=$DATE" >> $GITHUB_ENV
+          echo "crawl_date=$DATE" >> $GITHUB_OUTPUT
+
+      - name: Resolve SF installer URL
+        id: sf
+        run: |
+          DEB_URL=$(curl -sI "https://download.screamingfrog.co.uk/products/seo-spider/screamingfrogseospider_latest_all.deb" \
+            | grep -i '^location:' | awk '{print $2}' | tr -d '\r\n')
+          DEB_FILE=$(basename "$DEB_URL")
+          echo "deb_url=$DEB_URL"   >> $GITHUB_OUTPUT
+          echo "deb_file=$DEB_FILE" >> $GITHUB_OUTPUT
+
+      - name: Cache SF installer
+        id: cache_sf
+        uses: actions/cache@v4
+        with:
+          path: ${{ steps.sf.outputs.deb_file }}
+          key: sf-${{ steps.sf.outputs.deb_file }}
+
+      - name: Download SF installer
+        if: steps.cache_sf.outputs.cache-hit != 'true'
+        run: wget -q "${{ steps.sf.outputs.deb_url }}" -O "${{ steps.sf.outputs.deb_file }}"
+
+      - name: Install Screaming Frog
+        run: sudo apt-get install -y "./${{ steps.sf.outputs.deb_file }}"
+
+      - name: Activate Screaming Frog licence
+        run: |
+          mkdir -p ~/.ScreamingFrogSEOSpider
+          printf '%s\n%s\n' "${{ secrets.SF_LICENSE_USERNAME }}" "${{ secrets.SF_LICENSE_KEY }}" \
+            > ~/.ScreamingFrogSEOSpider/licence.txt
+          echo "${{ secrets.SF_MACHINE_ID }}" \
+            > ~/.ScreamingFrogSEOSpider/machine-id.txt
+          printf 'eula.accepted=15\n' \
+            > ~/.ScreamingFrogSEOSpider/spider.config
+
+      - name: Run crawl
+        run: |
+          mkdir -p results/${{ env.CRAWL_DATE }}
+          screamingfrogseospider \
+            --headless \
+            --crawl https://www.nordhealth.fi/ \
+            --export-tabs "Internal:All" \
+            --save-report "Crawl Overview,Issues Overview" \
+            --overwrite \
+            --output-folder results/${{ env.CRAWL_DATE }}
+          echo "Fichiers produits :"
+          ls results/${{ env.CRAWL_DATE }}/
+
+      - name: Transpose crawl overview
+        run: |
+          python3 pipeline/transpose.py \
+            "${{ env.CRAWL_DATE }}" \
+            "results/${{ env.CRAWL_DATE }}/crawl_overview.csv" \
+            "results/${{ env.CRAWL_DATE }}/issues_overview_report.csv" \
+            "results/crawl_history.csv"
+
+      - name: Copy to latest
+        run: |
+          mkdir -p results/latest
+          cp "results/${{ env.CRAWL_DATE }}/internal_all.csv"           results/latest/internal_all.csv
+          cp "results/${{ env.CRAWL_DATE }}/crawl_overview.csv"         results/latest/crawl_overview.csv
+          cp "results/${{ env.CRAWL_DATE }}/issues_overview_report.csv" results/latest/issues_overview_report.csv
+
+      - name: Commit crawl results
+        run: |
+          git config user.name "github-actions"
+          git config user.email "actions@github.com"
+          git add results/
+          git stash
+          git pull --rebase origin main
+          git stash pop
+          git commit -m "crawl SF ${{ env.CRAWL_DATE }}" || echo "rien de nouveau"
+          git push
+
+  # ── Job 2 : analyse IA + email (découplé du crawl) ───────────────────────────
+  notify:
+    needs: crawl
+    runs-on: ubuntu-latest
+    permissions:
+      contents: write
+
+    steps:
+      - name: Checkout repo (après commit du crawl)
+        uses: actions/checkout@v4
+        with:
+          ref: main
+
+      - name: AI Analysis
+        env:
+          ANTHROPIC_API_KEY: ${{ secrets.ANTHROPIC_API_KEY }}
+        run: |
+          python3 pipeline/ai_analysis.py \
+            "${{ needs.crawl.outputs.crawl_date }}" \
+            "results/latest/crawl_overview.csv" \
+            "results/latest/issues_overview_report.csv" \
+            "results/crawl_history.csv" \
+            "results/latest/ai_analysis.json"
+
+      - name: Commit AI analysis
+        run: |
+          git config user.name "github-actions"
+          git config user.email "actions@github.com"
+          git add results/latest/ai_analysis.json
+          git stash
+          git pull --rebase origin main
+          git stash pop
+          git commit -m "AI analysis ${{ needs.crawl.outputs.crawl_date }}" || echo "rien de nouveau"
+          git push
+
+      - name: Send email report
+        env:
+          RESEND_API_KEY: ${{ secrets.RESEND_API_KEY }}
+          MAIL_TO:        ${{ secrets.MAIL_TO }}
+          MAIL_FROM:      SEO Report <noreply@mail.spilou.com>
+          CRAWL_URL:      https://www.nordhealth.fi/
+          DASHBOARD_URL:  https://willotalexispro.github.io/sanity-check-nordhealth/
+        run: |
+          python3 pipeline/send_report.py "results/latest/ai_analysis.json"
+
+  # ── Job 3 : génération PPTX + envoi n8n (optionnel) ─────────────────────────
+  deck:
+    needs: crawl
+    if: ${{ inputs.generate_deck == true }}
+    runs-on: ubuntu-latest
+    permissions:
+      contents: write
+    env:
+      CRAWL_DATE: ${{ needs.crawl.outputs.crawl_date }}
+
+    steps:
+      - name: Checkout repo
+        uses: actions/checkout@v4
+        with:
+          ref: main
+
+      - name: Setup Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: '20'
+
+      - name: Generate PPTX
+        run: |
+          OVERVIEW="results/${{ env.CRAWL_DATE }}/crawl_overview.csv"
+          if [ ! -f "$OVERVIEW" ]; then
+            echo "crawl_overview.csv introuvable, skip"
+            exit 0
+          fi
+          npm ci --prefix pipeline --silent
+          PREV_DATE=$(ls results/ | grep "^20" | grep -v "${{ env.CRAWL_DATE }}" | sort | tail -1)
+          PPTX_OUT="results/${{ env.CRAWL_DATE }}/deck_${{ env.CRAWL_DATE }}.pptx"
+          if [ -n "$PREV_DATE" ] && [ -f "results/$PREV_DATE/crawl_overview.csv" ]; then
+            echo "Génération avec comparaison vs $PREV_DATE"
+            node pipeline/generate.js \
+              --current  "$OVERVIEW" \
+              --previous "results/$PREV_DATE/crawl_overview.csv" \
+              --config   pipeline/configs/nordhealth.json \
+              --output   "$PPTX_OUT"
+          else
+            echo "Génération baseline (sans comparaison W-o-W)"
+            node pipeline/generate.js \
+              --current "$OVERVIEW" \
+              --config  pipeline/configs/nordhealth.json \
+              --output  "$PPTX_OUT"
+          fi
+          echo "PPTX_PATH=$PPTX_OUT" >> $GITHUB_ENV
+
+      - name: Commit PPTX
+        run: |
+          if [ -z "$PPTX_PATH" ] || [ ! -f "$PPTX_PATH" ]; then exit 0; fi
+          git config user.name "github-actions"
+          git config user.email "actions@github.com"
+          git add "$PPTX_PATH"
+          git stash
+          git pull --rebase origin main
+          git stash pop
+          git commit -m "deck SF ${{ env.CRAWL_DATE }}" || echo "rien de nouveau"
+          git push
+
+      - name: Send PPTX to n8n
+        run: |
+          if [ -z "$PPTX_PATH" ] || [ ! -f "$PPTX_PATH" ]; then exit 0; fi
+          python3 << 'PYEOF'
+          import base64, json, urllib.request, os
+          pptx_path  = os.environ['PPTX_PATH']
+          crawl_date = os.environ['CRAWL_DATE']
+          with open(pptx_path, 'rb') as f:
+              content = base64.b64encode(f.read()).decode()
+          payload = json.dumps({
+              'filename': f'Crawl Overview Spilou - {crawl_date}.pptx',
+              'content':  content,
+          }).encode()
+          req = urllib.request.Request(
+              'https://n8n.spilou.com/webhook/44f8feb9-f516-43ce-aacc-e12729743ca8',
+              data=payload,
+              headers={'Content-Type': 'application/json', 'User-Agent': 'sanity-check-seo/1.0'},
+          )
+          try:
+              resp = urllib.request.urlopen(req, timeout=30)
+              print(f"OK n8n : {resp.read().decode()}")
+          except Exception as e:
+              print(f"Erreur n8n (non bloquant) : {e}")
+          PYEOF
