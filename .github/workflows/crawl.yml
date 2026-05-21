@@ -1,4 +1,4 @@
-name: Screaming Frog lite - nordhealth.fi
+name: Screaming Frog lite - spilou.com
 
 on:
   schedule:
@@ -64,6 +64,8 @@ jobs:
             > ~/.ScreamingFrogSEOSpider/licence.txt
           echo "${{ secrets.SF_MACHINE_ID }}" \
             > ~/.ScreamingFrogSEOSpider/machine-id.txt
+          echo '${{ secrets.SF_LEASE_JSON }}' \
+            > ~/.ScreamingFrogSEOSpider/lease.json
           printf 'eula.accepted=15\n' \
             > ~/.ScreamingFrogSEOSpider/spider.config
 
@@ -81,7 +83,7 @@ jobs:
           screamingfrogseospider \
             --headless \
             $CONFIG_FLAG \
-            --crawl https://www.nordhealth.fi/ \
+            --crawl https://spilou.com/ \
             --export-tabs "Internal:All" \
             --save-report "Crawl Overview,Issues Overview" \
             --overwrite \
@@ -155,8 +157,8 @@ jobs:
           RESEND_API_KEY: ${{ secrets.RESEND_API_KEY }}
           MAIL_TO:        ${{ secrets.MAIL_TO }}
           MAIL_FROM:      SEO Report <noreply@mail.spilou.com>
-          CRAWL_URL:      https://www.nordhealth.fi/
-          DASHBOARD_URL:  https://willotalexispro.github.io/sanity-check-nordhealth/
+          CRAWL_URL:      https://spilou.com/
+          DASHBOARD_URL:  https://willotalexispro.github.io/sanity-check-spilou/
         run: |
           python3 pipeline/send_report.py "results/latest/ai_analysis.json"
 
@@ -196,13 +198,13 @@ jobs:
             node pipeline/generate.js \
               --current  "$OVERVIEW" \
               --previous "results/$PREV_DATE/crawl_overview.csv" \
-              --config   pipeline/configs/nordhealth.json \
+              --config   pipeline/configs/spilou.json \
               --output   "$PPTX_OUT"
           else
             echo "Génération baseline (sans comparaison W-o-W)"
             node pipeline/generate.js \
               --current "$OVERVIEW" \
-              --config  pipeline/configs/nordhealth.json \
+              --config  pipeline/configs/spilou.json \
               --output  "$PPTX_OUT"
           fi
           echo "PPTX_PATH=$PPTX_OUT" >> $GITHUB_ENV
