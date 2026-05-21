@@ -70,8 +70,17 @@ jobs:
       - name: Run crawl
         run: |
           mkdir -p results/${{ env.CRAWL_DATE }}
+          CONFIG_FLAG=""
+          SF_CONFIG=$(ls config/*.seospiderconfig 2>/dev/null | head -1)
+          if [ -n "$SF_CONFIG" ]; then
+            CONFIG_FLAG="--config $SF_CONFIG"
+            echo "Config SF détectée : $SF_CONFIG"
+          else
+            echo "Pas de config SF — crawl avec paramètres par défaut"
+          fi
           screamingfrogseospider \
             --headless \
+            $CONFIG_FLAG \
             --crawl https://www.nordhealth.fi/ \
             --export-tabs "Internal:All" \
             --save-report "Crawl Overview,Issues Overview" \
