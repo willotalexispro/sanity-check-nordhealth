@@ -1,4 +1,4 @@
-name: Screaming Frog lite - spilou.com
+name: Screaming Frog lite - nordhealth.fi
 
 on:
   schedule:
@@ -83,7 +83,7 @@ jobs:
           screamingfrogseospider \
             --headless \
             $CONFIG_FLAG \
-            --crawl https://spilou.com/ \
+            --crawl https://nordhealth.fi/ \
             --export-tabs "Internal:All" \
             --save-report "Crawl Overview,Issues Overview" \
             --overwrite \
@@ -157,8 +157,8 @@ jobs:
           RESEND_API_KEY: ${{ secrets.RESEND_API_KEY }}
           MAIL_TO:        ${{ secrets.MAIL_TO }}
           MAIL_FROM:      SEO Report <noreply@mail.spilou.com>
-          CRAWL_URL:      https://spilou.com/
-          DASHBOARD_URL:  https://willotalexispro.github.io/sanity-check-spilou/
+          CRAWL_URL:      https://nordhealth.fi/
+          DASHBOARD_URL:  https://willotalexispro.github.io/sanity-check-nordhealth/
         run: |
           python3 pipeline/send_report.py "results/latest/ai_analysis.json"
 
