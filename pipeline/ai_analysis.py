@@ -114,7 +114,7 @@ Règles strictes :
 - Si une corrélation entre métriques est notable, mets-la en avant
 - Sois direct, factuel, sans jargon inutile
 - Utilise uniquement le tiret court - et jamais le tiret long —
-- Maximum 400 mots"""
+- Maximum 600 mots"""
 
     return prompt
 
@@ -261,9 +261,9 @@ def main():
     analysis_prompt   = build_prompt(crawl_date, overview_text, issues_rows, history_rows)
 
     print("Appel Haiku (récap email)…")
-    summary           = call_claude(summary_prompt,   api_key, "claude-haiku-4-5-20251001", 500)
+    summary           = call_claude(summary_prompt,   api_key, "claude-haiku-4-5-20251001", 1500)
     print("Appel Haiku (résumé dashboard)…")
-    dashboard_summary = call_claude(dashboard_prompt, api_key, "claude-haiku-4-5-20251001", 200)
+    dashboard_summary = call_claude(dashboard_prompt, api_key, "claude-haiku-4-5-20251001", 600)
     print("Appel Sonnet (analyse experte)…")
     analysis          = call_claude(analysis_prompt,  api_key, "claude-sonnet-4-6",         8192)
 
