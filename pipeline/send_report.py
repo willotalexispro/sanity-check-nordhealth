@@ -105,7 +105,7 @@ def build_html(crawl_date, site, summary, analysis_url):
         <!-- Footer -->
         <tr>
           <td style="background:#f5f6fa;padding:14px 28px;border-top:1px solid #e8eaf0">
-            <p style="margin:0;font-size:11px;color:#999">Généré automatiquement après chaque crawl Screaming Frog · <a href="{analysis_url}" style="color:#3182ce;text-decoration:none">Dashboard SEO</a></p>
+            <p style="margin:0;font-size:11px;color:#999">Généré automatiquement après chaque analyse SEO · <a href="{analysis_url}" style="color:#3182ce;text-decoration:none">Dashboard SEO</a></p>
           </td>
         </tr>
 
