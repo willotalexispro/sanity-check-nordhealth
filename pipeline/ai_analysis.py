@@ -190,7 +190,8 @@ Règles strictes :
 - Reproduis le bloc métriques et les erreurs EXACTEMENT comme fournis ci-dessus, sans les modifier
 - Seule la partie "Analyse récap" est à rédiger
 - Ton neutre et professionnel
-- Exactement 2-3 phrases pour l'analyse, jamais moins, jamais plus — phrase complète obligatoire"""
+- Exactement 3-5 phrases pour l'analyse, jamais moins, jamais plus — phrase complète obligatoire
+- Tu disposes de 1500 tokens au total pour ta réponse (bloc métriques + erreurs + analyse)"""
 
 
 def build_dashboard_prompt(crawl_date, issues_rows, history_rows):
@@ -233,7 +234,8 @@ Format attendu — exactement 5 lignes numérotées, une idée par ligne, pas de
 4. Problème prioritaire n°2 avec chiffre.
 5. Une action concrète à mener en priorité.
 
-Règles : phrases courtes, chiffres obligatoires, ton direct, aucun jargon."""
+Règles : phrases courtes, chiffres obligatoires, ton direct, aucun jargon.
+Tu disposes de 600 tokens — reste dans les 5 lignes, pas plus."""
 
 
 def main():
