@@ -67,7 +67,7 @@ def build_prompt(crawl_date, overview_text, issues_rows, history_rows):
     else:
         trend_text = "Premier crawl disponible — pas de comparaison possible."
 
-    prompt = f"""Tu es un consultant SEO technique senior. Tu analyses les données d'un crawl Screaming Frog en date du {crawl_date}.
+    prompt = f"""Tu es un consultant SEO technique senior. Tu analyses les données d'un audit SEO technique en date du {crawl_date}.
 
 Ton rôle n'est PAS de reformuler ce que les chiffres disent déjà — le client peut les lire lui-même dans son dashboard. Ton rôle est de :
 - Identifier les **corrélations non évidentes** entre métriques
