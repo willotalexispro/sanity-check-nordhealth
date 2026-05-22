@@ -1,5 +1,5 @@
 // generate.js
-// Pipeline complet : CSV Screaming Frog -> deck Crawl Overview
+// Pipeline complet : CSV -> deck Crawl Overview
 //
 // Usage:
 //   node generate.js \
@@ -24,7 +24,7 @@ const { parseCrawlOverview, getMetric } = require("./parseCrawl");
 // =============================================================
 //
 // Chaque "row" pointe vers une métrique CSV :
-//   section: nom du bloc Screaming Frog (ex. "Page Titles") ou null pour les stats globales
+//   section:  (ex. "Page Titles") ou null pour les stats globales
 //   metric:  nom exact de la ligne SF (ex. "Duplicate")
 //   label:   libellé affiché dans le deck
 //   mode:    "lowerBetter" (issue, on veut baisser) | "higherBetter" (positif, on veut monter)
@@ -963,7 +963,7 @@ Usage:
   node generate.js --current <csv> [--previous <csv>] [--config <json>] --output <pptx> [--state <json>]
 
 Options:
-  --current   chemin vers le CSV Screaming Frog Crawl Overview de la semaine
+  --current   chemin vers le CSV Crawl Overview de la semaine
   --previous  chemin vers le CSV de la semaine précédente (active les deltas)
   --config    fichier JSON avec { client, site, agency, crawlDate }
   --output    chemin du fichier .pptx généré
