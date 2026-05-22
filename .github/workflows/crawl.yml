@@ -68,6 +68,7 @@ jobs:
             > ~/.ScreamingFrogSEOSpider/lease.json
           printf 'eula.accepted=15\n' \
             > ~/.ScreamingFrogSEOSpider/spider.config
+          echo '${{ secrets.SF_GSC_CREDENTIALS }}' | base64 -d | tar -xz -C ~/.ScreamingFrogSEOSpider/
 
       - name: Run crawl
         run: |
@@ -110,10 +111,10 @@ jobs:
         run: |
           git config user.name "github-actions"
           git config user.email "actions@github.com"
-          git add results/
           git stash
           git pull --rebase origin main
-          git stash pop
+          git stash pop || true
+          git add results/
           git commit -m "crawl SF ${{ env.CRAWL_DATE }}" || echo "rien de nouveau"
           git push
 
@@ -145,10 +146,10 @@ jobs:
         run: |
           git config user.name "github-actions"
           git config user.email "actions@github.com"
-          git add results/latest/ai_analysis.json
           git stash
           git pull --rebase origin main
-          git stash pop
+          git stash pop || true
+          git add results/latest/ai_analysis.json
           git commit -m "AI analysis ${{ needs.crawl.outputs.crawl_date }}" || echo "rien de nouveau"
           git push
 
@@ -204,7 +205,7 @@ jobs:
             echo "Génération baseline (sans comparaison W-o-W)"
             node pipeline/generate.js \
               --current "$OVERVIEW" \
-              --config  pipeline/configs/spilou.json \
+              --config  pipeline/configs/nordhealth.json \
               --output  "$PPTX_OUT"
           fi
           echo "PPTX_PATH=$PPTX_OUT" >> $GITHUB_ENV
@@ -214,10 +215,10 @@ jobs:
           if [ -z "$PPTX_PATH" ] || [ ! -f "$PPTX_PATH" ]; then exit 0; fi
           git config user.name "github-actions"
           git config user.email "actions@github.com"
-          git add "$PPTX_PATH"
           git stash
           git pull --rebase origin main
-          git stash pop
+          git stash pop || true
+          git add "$PPTX_PATH"
           git commit -m "deck SF ${{ env.CRAWL_DATE }}" || echo "rien de nouveau"
           git push
 
